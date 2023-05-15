@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework import routers
-from authentication.api.views import RegisterView, LoginView, UserView, ProfileViewSet, RefreshTokenView
+from authentication.api.views import RegisterView, LoginView, UserView, ProfileViewSet, RefreshTokenView,UseVerificationView
 
 router = routers.DefaultRouter()
 router.register(r'profiles', ProfileViewSet)
@@ -13,6 +13,6 @@ urlpatterns = [
     path('refresh/', RefreshTokenView.as_view(), name='token refresh'),  
     # send refresh token obtained after login as a post request to get new access token
     # currently the auth is not required - may need to change later
-    
+    path('verify/', UseVerificationView.as_view(), name='token verification'),
     path('', include(router.urls)),
 ]

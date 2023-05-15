@@ -74,3 +74,9 @@ class UserView(APIView):
 
 class RefreshTokenView(TokenRefreshView):
     pass
+
+class UseVerificationView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        return Response({'detail': 'Access Token Valid'})

@@ -212,13 +212,13 @@ class ResultTestListCreateView(generics.ListCreateAPIView):
         # print(self.request.user)
         return ResultTest.objects.all()
 
-    def post(self, request, *args, **kwargs):
-        serializer = ResultTestSerializer(data=request.data)
-        if serializer.is_valid():
-            test = serializer.save()
-            serializer = ResultTestSerializer(test)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    # def post(self, request, *args, **kwargs):
+    #     serializer = ResultTestSerializer(data=request.data)
+    #     if serializer.is_valid():
+    #         test = serializer.save()
+    #         serializer = ResultTestSerializer(test)
+    #         return Response(serializer.data, status=status.HTTP_201_CREATED)
+    #     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
 
 class ResultTestUserView(generics.ListAPIView):
