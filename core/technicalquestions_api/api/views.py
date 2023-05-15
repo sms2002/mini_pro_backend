@@ -47,6 +47,7 @@ class GenerateTechnicalQuestionsView(APIView):
         # Serialize the questions data to JSON
         data = [{
             'question_id': question.question_id,
+            'index': count+1,
             'topic': question.topic,
             'question': question.question,
             'option_a': question.option_a,
@@ -57,7 +58,7 @@ class GenerateTechnicalQuestionsView(APIView):
             'difficulty': question.difficulty,
             'cognitive_level': question.cognitive_level,
             'subject': question.subject,
-        } for question in questions]
+        } for count,question in enumerate(questions)]
 
         # Return the questions data in a JSON response
         return Response(data)
