@@ -291,7 +291,7 @@ class UserResponseView(APIView):
             visualization[f'{difficulty}_wrong'] = wrong
             visualization[f'{difficulty}_total'] = total
             
-        for cognitive_level in ['analysing', 'applying', 'remembering', 'understanding']:
+        for cognitive_level in ['analyzing', 'applying', 'remembering', 'understanding']:
             correct = len([q for q in questions if q['question'].cognitive_level == cognitive_level and q['user_answer'] == q['question'].correct_answer])
             left = len([q for q in questions if q['question'].cognitive_level == cognitive_level and q['user_answer'] == 'x'])
             wrong = len([q for q in questions if q['question'].cognitive_level == cognitive_level and q['user_answer'] != q['question'].correct_answer and q['user_answer'] != 'x'])
