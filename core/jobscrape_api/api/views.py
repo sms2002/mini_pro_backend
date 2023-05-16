@@ -121,6 +121,29 @@ class ScrapeResultRetrieveView(generics.RetrieveAPIView):
         obj = get_object_or_404(ScrapeResult, job_name__job_name=job_name)  
         #return obj
         json_res = obj.json_resp
+        print(json_res[job_name][0])
+        
+        
+        unique_links = set()
+
+# Create a new list to store the filtered items
+        filtered_items = []
+
+        # Iterate over each item in the list
+        for item in json_res[job_name]:
+            company_link = item.get('job_description')
+            
+            # Check if the company_link is unique
+            if company_link not in unique_links:
+                # Add the company_link to the set
+                unique_links.add(company_link)
+                
+                # Add the item to the filtered list
+                filtered_items.append(item)
+
+        # Update the json_res with the filtered items
+        json_res[job_name] = filtered_items
+        
         print(type(json_res[job_name]))
         # for i in json_res[job_name]:
         #     del i["job_description"]
