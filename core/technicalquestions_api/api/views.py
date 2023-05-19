@@ -1,3 +1,4 @@
+from time import time
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
@@ -8,7 +9,7 @@ from django.http import JsonResponse
 from core.getkeywords import get_top_keywords
 
 
-from technicalquestions_api.models import QuizQuestion, ResultTest
+from technicalquestions_api.models import QuizQuestion, ResultTest,TimeElapsed
 from technicalquestions_api.api.serializers import QuizQuestionSerializer, ResultTestSerializer
 from authentication.models import User
 
@@ -21,6 +22,9 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 import numpy as np
 import random
 from django.http import Http404
+from datetime import datetime
+
+from django.utils import timezone
 
 
 
@@ -33,7 +37,11 @@ class QuizQuestionViewSet(ModelViewSet):
 
 class GenerateTechnicalQuestionsView(APIView):
     permission_classes = [IsAuthenticated,IsAdminUser]
-    def get(self, request):
+    def post(self, request):
+        try:
+            user_name= request.data['username']
+        except KeyError:
+            return Response({'error': 'No username field'}, status=status.HTTP_400_BAD_REQUEST)
         # Get all questions from the database grouped by subject
         questions_by_subject = defaultdict(list)
         for question in QuizQuestion.objects.all():
@@ -61,6 +69,17 @@ class GenerateTechnicalQuestionsView(APIView):
         } for count,question in enumerate(questions)]
 
         # Return the questions data in a JSON response
+        try:
+            user = User.objects.get(username=user_name)
+        except:
+            return Response({'error': 'No user exists'}, status=status.HTTP_400_BAD_REQUEST)
+            
+
+# create and save the ResultTest object
+        test_time = TimeElapsed(user=user)
+        test_time.save()
+        
+        
         return Response(data)
     
 
@@ -256,6 +275,7 @@ class UserResponseView(APIView):
         try:
             question_ids = request.data['ids']
             user_name= request.data['username']
+            time_elapsed=request.data['time']
         except KeyError:
             return Response({'error': 'Question IDs not provided'}, status=status.HTTP_400_BAD_REQUEST)
         print(user_name)
@@ -318,7 +338,8 @@ class UserResponseView(APIView):
         result = {
             'user_responses': [{'question_id': q['question'].question_id, 'correct_answer': q['question'].correct_answer, 'user_answer': q['user_answer']} for q in questions],
             'scores': scores,
-            'visualization': visualization
+            'visualization': visualization,
+            'time':time_elapsed
         }
         
         user = User.objects.get(username=user_name)
@@ -328,3 +349,25 @@ class UserResponseView(APIView):
         result_test.save()
 
         return Response({'results': result}, status=status.HTTP_200_OK)
+    
+class TimeResponseView(APIView):
+    permission_classes = [IsAuthenticated, IsAdminUser]
+
+    def post(self, request):
+        try:
+            user_name = request.data['username']
+        except KeyError:
+            return Response({'error': 'No username field'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            user = TimeElapsed.objects.filter(user__username=user_name).latest('test_date_start')
+        except TimeElapsed.DoesNotExist:
+            return Response({'error': 'No user exists'}, status=status.HTTP_400_BAD_REQUEST)
+
+        starting_time = user.test_date_start
+        current_time = datetime.now(timezone.utc)
+
+        time_difference = current_time - starting_time
+
+        return Response({"time_difference": str(time_difference)})
+    

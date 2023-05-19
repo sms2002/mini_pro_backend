@@ -27,3 +27,12 @@ class ResultTest(models.Model):
 
     def __str__(self):
         return f'{self.user} {self.test_date}'
+    
+class TimeElapsed(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="time_elapsed")
+    test_date_start = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f'{self.user} {self.test_date_start}'
+    #results = models.JSONField()
+    

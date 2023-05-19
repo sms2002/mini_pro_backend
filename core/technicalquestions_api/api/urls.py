@@ -1,7 +1,7 @@
 from django.urls import path, include
 from rest_framework import routers
 from technicalquestions_api.api.views import QuizQuestionViewSet, GenerateTechnicalQuestionsView
-from .views import ResultTestListCreateView, ResultTestUserView, ResultTestUserDetailView, SimilarQuestionsView, ProvideQuestionsView,UserResponseView,LatestResultTestUserView
+from .views import ResultTestListCreateView, ResultTestUserView, ResultTestUserDetailView, SimilarQuestionsView, ProvideQuestionsView,UserResponseView,LatestResultTestUserView,TimeResponseView
 
 
 router = routers.DefaultRouter()
@@ -26,6 +26,7 @@ urlpatterns = [
     path('prev-results/user/<int:pk>/', ResultTestUserDetailView.as_view(), name='result_test_user_detail'),
     # for logged in user to view a specific past result
     path('testuser/response/', UserResponseView.as_view(), name='user_response'), #  for test validation
-    path('latest/response/', LatestResultTestUserView.as_view(), name='user_response'),  # for 10 latest
+    path('time/response/', TimeResponseView.as_view(), name='time_response'), #  for time validation
+    path('latest/response/', LatestResultTestUserView.as_view(), name='latest_response'),  # for 10 latest
     
 ]
