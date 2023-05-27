@@ -7,7 +7,7 @@ from rest_framework import generics, status
 from django.shortcuts import get_object_or_404
 from django.http import JsonResponse
 from core.getkeywords import get_top_keywords
-
+from collections import Counter
 
 from technicalquestions_api.models import QuizQuestion, ResultTest,TimeElapsed
 from technicalquestions_api.api.serializers import QuizQuestionSerializer, ResultTestSerializer
@@ -85,15 +85,107 @@ class GenerateTechnicalQuestionsView(APIView):
 
 class SimilarQuestionsView(APIView):
     permission_classes = [IsAuthenticated, IsAdminUser]
-
+    
+    
     def post(self, request):
-        # Get list of wrong question ids from request body
-        body_unicode = request.body.decode('utf-8')
-        body = json.loads(body_unicode)
-        wrong_question_ids = body.get('ids', [])
-        invalid_ids = set(wrong_question_ids) - set(QuizQuestion.objects.values_list('question_id', flat=True))
-        if invalid_ids:
-            raise Http404(f'Invalid question ids: {", ".join(map(str, invalid_ids))}')
+        try:
+            user_name = request.data['username']
+        except KeyError:
+            return Response({'error': 'No username field'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Get the latest entry for the specified username
+
+        try_final_tests = ResultTest.objects.filter(user__username=user_name)
+        
+        if not try_final_tests:
+            return Response({'error': 'No ResultTest found for the specified username'}, status=status.HTTP_404_NOT_FOUND)
+
+        wrong_question_ids_counter = Counter()
+        top_wrong_question_ids = []
+
+        for result_test in try_final_tests:
+            total_score = result_test.results["scores"].get("total_score", 0)
+            if total_score < 40:
+                for user_response in result_test.results["user_responses"]:
+                    question_id = user_response["question_id"]
+                    if question_id not in wrong_question_ids_counter:
+                        wrong_question_ids_counter[question_id] = 0
+                    if user_response["correct_answer"] != user_response["user_answer"]:
+                        wrong_question_ids_counter[question_id] += 1
+        
+        if sum(wrong_question_ids_counter.values())==0:
+            return Response({'error': 'No Weak Areas'}, status=status.HTTP_404_NOT_FOUND)
+            
+
+        # Retrieve the top 5 wrong question IDs from each subject
+        subject_ranges = {
+            "OS": range(1, 101),
+            "CN": range(101, 201),
+            "DBMS": range(201, 301),
+            "OOPS": range(301, 401)
+        }
+
+        for subject, subject_range in subject_ranges.items():
+            subject_wrong_question_ids = [
+                question_id for question_id in wrong_question_ids_counter
+                if question_id in subject_range and wrong_question_ids_counter[question_id] >= 1
+            ]
+            subject_top_wrong_question_ids = sorted(subject_wrong_question_ids, key=lambda x: wrong_question_ids_counter[x], reverse=True)[:5]
+            top_wrong_question_ids.extend(subject_top_wrong_question_ids)
+
+        # Sort the wrong question IDs based on their counts
+        top_wrong_question_ids = sorted(top_wrong_question_ids, key=lambda x: wrong_question_ids_counter[x], reverse=True)
+
+        # Add remaining top frequency elements from other subjects if needed
+        remaining_count = 20 - len(top_wrong_question_ids)
+        if remaining_count > 0:
+            remaining_subjects = [subject for subject in subject_ranges if subject not in subject_ranges]
+            for subject in remaining_subjects:
+                subject_wrong_question_ids = [
+                    question_id for question_id in wrong_question_ids_counter
+                    if question_id not in top_wrong_question_ids and question_id in subject_ranges[subject]
+                ]
+                subject_top_wrong_question_ids = sorted(subject_wrong_question_ids, key=lambda x: wrong_question_ids_counter[x], reverse=True)
+                subject_top_wrong_question_ids = [
+                    question_id for question_id in subject_top_wrong_question_ids
+                    if question_id not in top_wrong_question_ids
+                ][:remaining_count]
+                top_wrong_question_ids.extend(subject_top_wrong_question_ids)
+                remaining_count = 20 - len(top_wrong_question_ids)
+                if remaining_count <= 0:
+                    break
+
+        
+        
+        # wrong_question_ids_counter = Counter()
+        print(wrong_question_ids_counter)
+        for i in wrong_question_ids_counter:
+            if len(top_wrong_question_ids)<20:
+                if wrong_question_ids_counter[i]>=1 and i not in top_wrong_question_ids:
+                    top_wrong_question_ids.append(i)
+            else:
+                break
+                 
+            
+            
+        
+        print(top_wrong_question_ids)
+        
+        #print(result_test.results["user_responses"])
+        wrong_question_ids=top_wrong_question_ids
+
+        # Continue with your code using the `result_test` object
+        
+    #     return Response({'result_test_id': result_test.id}, status=status.HTTP_200_OK)
+
+    # # def post(self, request):
+    #     # Get list of wrong question ids from request body
+    #     body_unicode = request.body.decode('utf-8')
+    #     body = json.loads(body_unicode)
+    #     wrong_question_ids = body.get('ids', [])
+        # invalid_ids = set(wrong_question_ids) - set(QuizQuestion.objects.values_list('question_id', flat=True))
+        # if invalid_ids:
+        #     raise Http404(f'Invalid question ids: {", ".join(map(str, invalid_ids))}')
 
         # Get all questions except the ones the user attempted wrong
         ex_questions = QuizQuestion.objects.filter(question_id__in=wrong_question_ids)
@@ -183,8 +275,18 @@ class SimilarQuestionsView(APIView):
                 subject_questions.extend(remaining_questions[:10 - len(subject_questions)])
             subject_data = QuizQuestionSerializer(subject_questions, many=True).data
             similar_questions_data[subject] = subject_data
+            
+        final_questions_data = []
+        index = 1
 
-        return JsonResponse(similar_questions_data)
+        for sublist in similar_questions_data.values():
+            for question in sublist:
+                question_with_index = {**question, "index": index}
+                final_questions_data.append(question_with_index)
+                index += 1  
+        
+
+        return JsonResponse(final_questions_data,safe=False)
 
 
 
@@ -336,7 +438,7 @@ class UserResponseView(APIView):
         #visualization.update(scores)
 
         result = {
-            'user_responses': [{'question_id': q['question'].question_id, 'correct_answer': q['question'].correct_answer, 'user_answer': q['user_answer']} for q in questions],
+            'user_responses': [{'question_id': q['question'].question_id, 'correct_answer': q['question'].correct_answer, 'user_answer': q['user_answer'] ,"question":q["question"].question,"option_a":q["question"].option_a,"option_b":q["question"].option_b,"option_c":q["question"].option_c,"option_d":q["question"].option_d,"difficulty":q["question"].difficulty,"cognitive_level":q["question"].cognitive_level,"subject":q["question"].subject,"index":ctr+1} for ctr,q in enumerate(questions)],
             'scores': scores,
             'visualization': visualization,
             'time':time_elapsed
@@ -348,7 +450,9 @@ class UserResponseView(APIView):
         result_test = ResultTest(user=user, results=result)
         result_test.save()
 
-        return Response({'results': result}, status=status.HTTP_200_OK)
+        result_test_id = result_test.id
+
+        return Response({'results': result, 'id': result_test_id}, status=status.HTTP_200_OK)
     
 class TimeResponseView(APIView):
     permission_classes = [IsAuthenticated, IsAdminUser]
