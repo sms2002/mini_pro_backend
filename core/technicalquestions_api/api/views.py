@@ -285,7 +285,47 @@ class SimilarQuestionsView(APIView):
                 final_questions_data.append(question_with_index)
                 index += 1  
         
+        try:
+            user_name= request.data['username']
+        except KeyError:
+            return Response({'error': 'No username field'}, status=status.HTTP_400_BAD_REQUEST)
+        # Get all questions from the database grouped by subject
+        questions_by_subject = defaultdict(list)
+        for question in QuizQuestion.objects.all():
+            questions_by_subject[question.subject].append(question)
 
+        # Select 10 random questions for each subject
+        questions = []
+        for subject, subject_questions in questions_by_subject.items():
+            questions += sample(subject_questions, 10)
+
+        # Serialize the questions data to JSON
+        data = [{
+            'question_id': question.question_id,
+            'index': count+1,
+            'topic': question.topic,
+            'question': question.question,
+            'option_a': question.option_a,
+            'option_b': question.option_b,
+            'option_c': question.option_c,
+            'option_d': question.option_d,
+            'correct_answer': question.correct_answer,
+            'difficulty': question.difficulty,
+            'cognitive_level': question.cognitive_level,
+            'subject': question.subject,
+        } for count,question in enumerate(questions)]
+
+        # Return the questions data in a JSON response
+        try:
+            user = User.objects.get(username=user_name)
+        except:
+            return Response({'error': 'No user exists'}, status=status.HTTP_400_BAD_REQUEST)
+            
+
+# create and save the ResultTest object
+        test_time = TimeElapsed(user=user)
+        test_time.save()
+        
         return JsonResponse(final_questions_data,safe=False)
 
 
